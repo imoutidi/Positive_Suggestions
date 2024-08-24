@@ -1,20 +1,18 @@
-# Will watch for changes in these directories: ['/home/iraklis/PycharmProjects/Think_positive']
-# INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-# INFO:     Started reloader process [34443] using WatchFiles
-
-from enum import Enum
-from unicodedata import category
-
-from fastapi import HTTPException
+from fastapi import HTTPException, Depends, status
 from fastapi import FastAPI
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+
 from pydantic import BaseModel, constr
 
 import re
+import os
+import json
 import string
 
 import langid
 from transformers import BertTokenizer, BertForMaskedLM, pipeline
 import torch
+
 
 
 app = FastAPI()
@@ -34,16 +32,45 @@ class TextInput(BaseModel):
     # And it should be a string.
     text: constr(max_length=80)
 
+security = HTTPBasic()
+
+def verify_credentials(credentials: HTTPBasicCredentials):
+
+    # Read credentials from file
+    credentials_file = open(os.path.join(os.path.dirname(__file__), "credentials.json"))
+    credentials_dict = json.load(credentials_file)
+    auth_username = credentials_dict["username"]
+    auth_password = credentials_dict["password"]
+
+    # auth_username = "user"
+    # auth_password = "31415"
+    # Check if the provided username exists
+    if credentials.username != auth_username:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+
+    # Check if the provided password matches
+    if credentials.password != auth_password:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+
 # Define a POST endpoint that accepts a string
 @app.post("/sentence_sentiment/")
-async def process_text(input_sentence: TextInput):
+async def process_text(input_sentence: TextInput, credentials: HTTPBasicCredentials = Depends(security) ):
+    verify_credentials(credentials)
     check_result = check_input(input_sentence)
     if not check_result[0]:
         return {"response": check_result[1]}
     else:
         # Return the processed string
         suggested_words = generate_text_suggestions(input_sentence)
-        return {"output": suggested_words}
+        return {"output1": suggested_words}
 
 # I haven't done excessive input checks.
 # I assume that there should be only one <blank> tag and that there should be more than
