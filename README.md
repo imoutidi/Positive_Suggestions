@@ -34,3 +34,25 @@ curl -L -X POST "http://127.0.0.1:8000/sentence_sentiment" -H "Content-Type: app
 To access the documentation of the API paste on a browser:
 
 > 127.0.0.1:8000/docs
+
+### Locust load testing
+Install Locust
+
+```
+pip install locust
+```
+After running the server you can access locust and start the testing from
+a browser using this address:
+
+```
+http://localhost:8089
+```
+
+On the host field put
+```
+http://127.0.0.1:8000
+```
+
+
+
+
