@@ -94,7 +94,7 @@ async def process_text(input_sentence: TextInput, credentials: HTTPBasicCredenti
             suggested_words = generate_text_suggestions(input_sentence)
             # Add response to the cache
             await redis.set(input_sentence.text, suggested_words, ex=expiration_time)
-            return {"output1": suggested_words}
+            return {"output": suggested_words}
 
 # I haven't done excessive input checks.
 # I assume that there should be only one <blank> tag and that there should be more than
