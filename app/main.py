@@ -1,5 +1,4 @@
-from fastapi import HTTPException, Depends, status
-from fastapi import FastAPI
+from fastapi import HTTPException, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from pydantic import BaseModel, constr
@@ -8,6 +7,7 @@ import re
 import os
 import json
 import string
+import logging
 
 import langid
 from transformers import BertTokenizer, BertForMaskedLM, pipeline
@@ -17,8 +17,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends
 import aioredis
 
-# app = FastAPI()
-
 # Initializing models
 # Load pre-trained model and tokenizer
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
@@ -26,6 +24,14 @@ tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 model = BertForMaskedLM.from_pretrained('bert-base-uncased')
 # Sentiment analysis model
 sentiment_pipeline = pipeline("sentiment-analysis")
+
+# Setting up logger
+# Set up logging configuration
+logging.basicConfig(
+        filename='sentiment_suggestions.log',  # Log file
+        level=logging.DEBUG,  # Set the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        format='%(asctime)s - %(levelname)s - %(message)s'  # Format of the log messages
+    )
 
 
 # Define a Pydantic model for the input data
@@ -44,18 +50,17 @@ def verify_credentials(credentials: HTTPBasicCredentials):
     auth_username = credentials_dict["username"]
     auth_password = credentials_dict["password"]
 
-    # auth_username = "user"
-    # auth_password = "31415"
     # Check if the provided username exists
     if credentials.username != auth_username:
+        logging.error("Wrong username entered by the user")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Basic"},
         )
-
     # Check if the provided password matches
     if credentials.password != auth_password:
+        logging.error("Wrong password entered by the user")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -65,7 +70,6 @@ def verify_credentials(credentials: HTTPBasicCredentials):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global redis
-    # redis = await aioredis.from_url("redis://localhost:6379")
     redis = await aioredis.from_url("redis://redis:6379")
     app.state.redis = redis
 
@@ -77,10 +81,12 @@ app = FastAPI(lifespan=lifespan)
 # Define a POST endpoint that accepts a string
 @app.post("/sentence_sentiment/")
 async def process_text(input_sentence: TextInput, credentials: HTTPBasicCredentials = Depends(security)):
-
+    logging.debug(f"Input text: {input_sentence.text},"
+                  f" username:{credentials.username}, password:{credentials.password}")
     verify_credentials(credentials)
     check_result = check_input(input_sentence)
     if not check_result[0]:
+        logging.error(f"User {credentials.username} entered invalid request. {check_result[1]}")
         return {"response": check_result[1]}
     else:
         # Define cache expiration time
@@ -88,7 +94,7 @@ async def process_text(input_sentence: TextInput, credentials: HTTPBasicCredenti
         # Check cache
         cached_output = await redis.get(input_sentence.text)
         if cached_output:
-            return {"output1": cached_output}
+            return {"output": cached_output}
         else:
             # Process the string and return it to the user
             suggested_words = generate_text_suggestions(input_sentence)
@@ -112,8 +118,7 @@ def check_input(sent_input):
             return False, "The input string should have only one <blank> tag."
         # Detecting the language of the input text I remove the <blank> tag because it messes up the language detection.
         language = langid.classify(sent_input.text.replace("<blank>", "").strip())
-        # print("The language is", language)
-        # print(sent_input.text.replace("<blank>", "").strip())
+
         if language[0] != "en":
             return False, "The input language should be in English."
         else:
@@ -159,12 +164,16 @@ def prepare_text_for_classifier(input_text):
 # Concatenate the suggested words into a string
 def sentiment_evaluation_of_suggestions(t_tokens, tokenizer):
     non_negative_words = list()
+    all_words = list()
     for token in t_tokens:
         word = tokenizer.decode([token])
+        all_words.append(word)
         sentiment = sentiment_pipeline(word)
         # Discarding any negative suggestions.
         if sentiment[0]["label"] != "NEGATIVE":
             non_negative_words.append(word)
+    logging.info(f"All suggested words: {all_words}")
+    logging.info(f"All non negative words: {non_negative_words}")
     # Concatenating all words into one string, coma separated.
     suggested_words = ""
     for p_word in non_negative_words[:-1]:
@@ -174,7 +183,3 @@ def sentiment_evaluation_of_suggestions(t_tokens, tokenizer):
         return "No non negative words were found."
     else:
         return suggested_words
-
-
-if __name__ =="__main__":
-    print("So it begins")

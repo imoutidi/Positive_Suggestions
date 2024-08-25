@@ -14,7 +14,7 @@ To run the application after the build use this:
 sudo docker-compose up 
 ```
 
-### You can acces the API with python requests
+### You can access the API with python requests
 
 ```python
 import requests
@@ -22,13 +22,13 @@ from requests.auth import HTTPBasicAuth
 
 print(requests.post("http://127.0.0.1:8000/sentence_sentiment",
                     json={"text": "the application was <blank>"},
-                    auth=HTTPBasicAuth("user", "31415")).json())
+                    auth=HTTPBasicAuth("user_moutidis", "31415")).json())
 ```
 
 ### Or with a curl script
 
 ```
-curl -L -X POST "http://127.0.0.1:8000/sentence_sentiment" -H "Content-Type: application/json" -d '{"text": "the application was <blank>"}' -u "user:31415"
+curl -L -X POST "http://127.0.0.1:8000/sentence_sentiment" -H "Content-Type: application/json" -d '{"text": "the application was <blank>"}' -u "user_moutidis:31415"
 ```
 
 To access the documentation of the API paste on a browser:
