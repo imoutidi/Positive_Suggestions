@@ -13,9 +13,11 @@ import langid
 from transformers import BertTokenizer, BertForMaskedLM, pipeline
 import torch
 
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, Depends
+import aioredis
 
-
-app = FastAPI()
+# app = FastAPI()
 
 # Initializing models
 # Load pre-trained model and tokenizer
@@ -60,17 +62,39 @@ def verify_credentials(credentials: HTTPBasicCredentials):
             headers={"WWW-Authenticate": "Basic"},
         )
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global redis
+    # redis = await aioredis.from_url("redis://localhost:6379")
+    redis = await aioredis.from_url("redis://redis:6379")
+    app.state.redis = redis
+
+    yield
+    await redis.close()
+
+app = FastAPI(lifespan=lifespan)
+
 # Define a POST endpoint that accepts a string
 @app.post("/sentence_sentiment/")
-async def process_text(input_sentence: TextInput, credentials: HTTPBasicCredentials = Depends(security) ):
+async def process_text(input_sentence: TextInput, credentials: HTTPBasicCredentials = Depends(security)):
+
     verify_credentials(credentials)
     check_result = check_input(input_sentence)
     if not check_result[0]:
         return {"response": check_result[1]}
     else:
-        # Return the processed string
-        suggested_words = generate_text_suggestions(input_sentence)
-        return {"output1": suggested_words}
+        # Define cache expiration time
+        expiration_time = 60
+        # Check cache
+        cached_output = await redis.get(input_sentence.text)
+        if cached_output:
+            return {"output1": cached_output}
+        else:
+            # Process the string and return it to the user
+            suggested_words = generate_text_suggestions(input_sentence)
+            # Add response to the cache
+            await redis.set(input_sentence.text, suggested_words, ex=expiration_time)
+            return {"output1": suggested_words}
 
 # I haven't done excessive input checks.
 # I assume that there should be only one <blank> tag and that there should be more than

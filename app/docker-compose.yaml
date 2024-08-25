@@ -1,8 +1,23 @@
-version: "3"
-
+version: '3'
 services:
-  web:
-    build: .
-    command: sh -c " uvicorn main:app --reload --port=8000 --host=0.0.0.0"
+  fastapi-app:
+    build: ./
+    container_name: fastapi-app
     ports:
-      - 8000:8000
+      - "8000:8000"
+    depends_on:
+      - redis
+    networks:
+      - app-network
+
+  redis:
+    image: redis:latest
+    container_name: app-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
