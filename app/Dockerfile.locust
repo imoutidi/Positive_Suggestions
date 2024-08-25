@@ -1,0 +1,17 @@
+# Use an official Python runtime as a parent image
+FROM python:3.10-slim
+
+# Set the working directory
+WORKDIR /app
+
+# Copy the Locust file
+COPY locustfile.py /app/
+
+# Install Locust
+RUN pip install locust
+
+# Expose port 8089 for Locust web interface
+EXPOSE 8089
+
+# Set the default command to run Locust
+CMD ["locust", "-f", "locustfile.py"]
