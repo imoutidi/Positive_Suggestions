@@ -79,8 +79,7 @@ def verify_credentials(credentials: HTTPBasicCredentials):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global redis
-    # redis = await aioredis.from_url("redis://redis:6379")
-    redis = await aioredis.from_url("redis://localhost:6379")
+    redis = await aioredis.from_url("redis://redis:6379")
     app.state.redis = redis
 
     yield
