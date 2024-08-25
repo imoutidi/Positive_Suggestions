@@ -87,6 +87,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+
 # Define a POST endpoint that accepts a string
 @app.post("/sentence_sentiment/")
 async def process_text(input_sentence: TextInput, credentials: HTTPBasicCredentials = Depends(security)):
